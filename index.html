@@ -33,6 +33,10 @@
     // Link da Super Aula. Aceita YouTube, Vimeo (inclusive link privado com hash) ou um arquivo .mp4
     videoUrl: "https://vimeo.com/1236315892/e0c0be870a",
 
+    // Opcional e recomendado: link direto do arquivo do vídeo (Vimeo > vídeo > Distribuição > Links de arquivo de vídeo).
+    // Aceita .mp4 ou .m3u8. Quando preenchido, o vídeo toca pela própria página e o som funciona em todos os celulares.
+    videoFile: "",
+
     // Opcional: URL de webhook (n8n, Make, Supabase Edge Function) que recebe as respostas em JSON.
     webhookUrl: "",
 
@@ -267,6 +271,7 @@
   .player.ended .vo{background:linear-gradient(rgba(14,3,32,.72),rgba(14,3,32,.82)),url(img/capa-super-aula.webp) center/cover no-repeat}
   .player.ended .vo::before{content:"";position:absolute;inset:0;background:inherit;filter:blur(14px);transform:scale(1.08);z-index:-1}
   .player.ended .vo{isolation:isolate;overflow:hidden}
+  .pre-player{position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;pointer-events:none}
   .tip{margin-top:14px;font-size:14px;color:var(--muted);font-weight:700;text-align:center}
 
   /* Oferta (liberada no minuto do vídeo) */
@@ -796,6 +801,7 @@
       next.classList.add('active');
       current = next;
       top.classList.toggle('no-bar', step === 'final' || step === 'loading');
+      if(step === 'final' && typeof preloadPlayer === 'function') setTimeout(preloadPlayer, 50);
       setProgress(step);
       window.scrollTo({top:0, behavior:'smooth'});
     };
@@ -965,38 +971,86 @@
     });
   }
 
-  function startVideo(fromSec){
+  // ---------- Início do vídeo com som ----------
+  // O player do Vimeo já fica carregado por trás da capa; o toque na capa só dá o play (com volume no máximo).
+  var pre = null; // {el, type}
+  var vimeoReady = false;
+  var playFails = 0;
+
+  function fileSource(){
+    var f = CFG.videoFile || '';
+    if(f) return {type:'video', src:f, hls: /\.m3u8(\?|$)/i.test(f)};
     var e = embedUrl(CFG.videoUrl);
+    return e;
+  }
+
+  function attachHls(v, src){
+    if(v.canPlayType('application/vnd.apple.mpegurl')){ v.src = src; return; }
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js';
+    s.onload = function(){ if(window.Hls && Hls.isSupported()){ var h = new Hls(); h.loadSource(src); h.attachMedia(v); } else { v.src = src; } };
+    document.head.appendChild(s);
+  }
+
+  function preloadPlayer(){
+    if(pre) return;
+    var e = fileSource();
     if(!e) return;
-    if(PREVIEW) fromSec = PREVIEW_START;
-    fromSec = Math.max(0, Math.floor(fromSec || 0));
-    track('superaula_play', {retomou_em: fromSec});
     var el;
-    Array.prototype.slice.call(player.children).forEach(function(c){ if(c !== vo && c.id !== 'fsOffer') c.remove(); });
-    ui = null; isPlaying = false; startedOnce = false;
-    player.classList.add('has-video', 'ui-on');
     if(e.type === 'video'){
       el = document.createElement('video');
-      el.src = e.src; el.controls = false; el.autoplay = true; el.playsInline = true;
+      el.preload = 'metadata'; el.controls = false; el.playsInline = true;
       el.setAttribute('playsinline','');
-      el.addEventListener('loadedmetadata', function(){
-        try{ el.currentTime = Math.min(fromSec, Math.max(0, el.duration - 3)); }catch(x){}
-      }, {once:true});
+      if(e.hls) attachHls(el, e.src); else el.src = e.src;
     } else {
       el = document.createElement('iframe');
-      el.src = e.src + (fromSec && /player\.vimeo\.com/.test(e.src) ? '#t=' + fromSec + 's' : '');
+      el.src = e.src.replace('autoplay=1', 'autoplay=0');
       el.allow = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
       el.allowFullscreen = true;
       el.title = 'Super Aula O Vídeo que Vende';
     }
-    player.insertBefore(el, vo);
-    buildUI();
+    el.className = 'pre-player';
+    player.insertBefore(el, player.firstChild);
+    pre = {el: el, type: e.type};
     if(e.type === 'video') watchVideoTag(el);
-    else if(/player\.vimeo\.com/.test(e.src)) watchVimeo(el, fromSec);
-    // Se o navegador bloquear o início automático, mostra um botão grande de play
-    setTimeout(function(){ if(!startedOnce) showOverlay('start'); }, 2500);
+    else if(/player\.vimeo\.com/.test(e.src)) watchVimeo(el, 0, function(){ vimeoReady = true; });
   }
 
+  function startVideo(fromSec){
+    if(PREVIEW) fromSec = PREVIEW_START;
+    fromSec = Math.max(0, Math.floor(fromSec || 0));
+    track('superaula_play', {retomou_em: fromSec});
+    if(!pre) preloadPlayer();
+    if(!pre) return;
+    // remove capa e botões, mantém o player já carregado, o menu e o botão da oferta
+    Array.prototype.slice.call(player.children).forEach(function(c){
+      if(c !== vo && c.id !== 'fsOffer' && c !== pre.el) c.remove();
+    });
+    pre.el.classList.remove('pre-player');
+    ui = null; isPlaying = false; startedOnce = false; playFails = 0;
+    player.classList.add('has-video', 'ui-on');
+    buildUI();
+
+    if(pre.type === 'video'){
+      var v = pre.el;
+      v.muted = false; v.volume = 1;
+      var p = v.play(); // chamado direto no toque: o navegador libera o som
+      if(p && p.catch) p.catch(function(){ showOverlay('start'); });
+      var seekTo = function(){ try{ if(fromSec) v.currentTime = Math.min(fromSec, Math.max(0, (v.duration || fromSec + 4) - 3)); }catch(x){} };
+      if(v.readyState >= 1) seekTo(); else v.addEventListener('loadedmetadata', seekTo, {once:true});
+    } else if(ctl && vimeoReady){
+      ctl.startAt(fromSec);
+    } else {
+      // o player ainda não terminou de carregar: tenta assim que ficar pronto
+      var tries = 0;
+      var wait = setInterval(function(){
+        tries++;
+        if(ctl && vimeoReady){ clearInterval(wait); ctl.startAt(fromSec); }
+        else if(tries > 40){ clearInterval(wait); showOverlay('start'); }
+      }, 100);
+    }
+    setTimeout(function(){ if(!startedOnce) showOverlay('start'); }, 3000);
+  }
 
   // ---------- Celular de lado: vídeo ocupa a tela inteira ----------
   var fsOffer = document.getElementById('fsOffer');
@@ -1115,7 +1169,15 @@
 
   function watchVideoTag(v){
     ctl = {
-      play: function(){ v.play().catch(function(){ v.muted = true; v.play(); updateSound(true); }); },
+      play: function(){
+        v.muted = false;
+        v.play().then(function(){ playFails = 0; }).catch(function(){
+          playFails++;
+          if(playFails < 2) showOverlay('start');
+          else { v.muted = true; v.play(); updateSound(true); } // último recurso
+        });
+      },
+      startAt: function(s){ v.currentTime = s; ctl.play(); },
       pause: function(){ v.pause(); },
       seek: function(s, andPlay){ v.currentTime = s; if(andPlay) ctl.play(); },
       unmute: function(){ v.muted = false; }
@@ -1127,23 +1189,32 @@
     v.addEventListener('ended', function(){ setPlaying(false); store(KEY_POS, '0'); track('superaula_fim_video'); showOverlay('ended'); });
   }
 
-  function watchVimeo(iframe, fromSec){
+  function watchVimeo(iframe, fromSec, onReady){
     function attach(){
       try{
         var p = new window.Vimeo.Player(iframe);
         var dur = 0;
         ctl = {
           play: function(){
-            p.play().catch(function(){
-              // celular bloqueou o som: toca sem som e oferece o botão de ativar
+            p.setMuted(false).catch(function(){});
+            p.setVolume(1).catch(function(){});
+            p.play().then(function(){ playFails = 0; }).catch(function(){
+              playFails++;
+              if(playFails < 2){ showOverlay('start'); return; }
+              // último recurso, só se o navegador bloquear o som duas vezes: toca e oferece ativar o som
               p.setMuted(true).then(function(){ return p.play(); }).then(function(){ updateSound(true); }).catch(function(){});
             });
+          },
+          startAt: function(s){
+            ctl.play();
+            if(s > 1) p.setCurrentTime(s).catch(function(){});
           },
           pause: function(){ p.pause().catch(function(){}); },
           seek: function(s, andPlay){ p.setCurrentTime(s).then(function(){ if(andPlay) ctl.play(); }).catch(function(){}); },
           unmute: function(){ p.setMuted(false).catch(function(){}); p.setVolume(1).catch(function(){}); }
         };
         p.getDuration().then(function(d){ dur = d; store(KEY_DUR, String(Math.floor(d))); }).catch(function(){});
+        p.ready().then(function(){ if(onReady) onReady(); }).catch(function(){ if(onReady) onReady(); });
         p.on('loaded', function(){
           if(fromSec > 2) p.getCurrentTime().then(function(c){ if(Math.abs(c - fromSec) > 3) p.setCurrentTime(fromSec).catch(function(){}); }).catch(function(){});
         });
