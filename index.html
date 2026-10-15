@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Eaglle | O Vídeo que Vende</title>
-<meta name="description" content="Responda 4 perguntas rápidas e libere a Super Aula: os 5 passos d'O Vídeo que Vende.">
+<meta name="description" content="Responda 4 perguntas e libere a Super Aula: as 5 decisões do vídeo de celular que gerou R$ 8 milhões em vendas de imóveis.">
 <meta name="theme-color" content="#1a0638">
 
 <!-- Favicon -->
@@ -16,7 +16,7 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://quiz.eagllemobile.com.br/">
 <meta property="og:title" content="O Vídeo que Vende | Super Aula Eaglle">
-<meta property="og:description" content="Responda 4 perguntas e libere a Super Aula com os 5 passos que fazem o corretor gerar conversa, não só visualização.">
+<meta property="og:description" content="Um vídeo de 22 segundos, feito no celular, gerou R$ 8 milhões em vendas. Responda 4 perguntas e libere a Super Aula com as 5 decisões.">
 <meta property="og:image" content="https://quiz.eagllemobile.com.br/img/og-image.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -209,6 +209,20 @@
   .play svg{width:34%;height:34%;margin-left:6%;fill:#1a0638}
   @keyframes pulse{0%,100%{box-shadow:0 10px 30px rgba(242,180,12,.35),0 0 0 0 rgba(242,180,12,.5)}50%{box-shadow:0 10px 30px rgba(242,180,12,.35),0 0 0 18px rgba(242,180,12,0)}}
   .duration{position:absolute;z-index:3;right:14px;bottom:12px;padding:5px 10px;border-radius:8px;background:rgba(0,0,0,.6);font-weight:800;font-size:12px}
+  .sub-h{max-width:720px;margin-top:12px;text-align:center;color:var(--muted);font-weight:700;font-size:clamp(14px,1.7vw,18px);line-height:1.45;text-wrap:balance}
+  .resume-chip{position:absolute;z-index:3;left:50%;bottom:14px;transform:translateX(-50%);padding:6px 12px;border-radius:99px;background:rgba(0,0,0,.6);font-weight:900;font-size:clamp(11px,1.3vw,14px);white-space:nowrap}
+  .cover-progress{position:absolute;z-index:3;left:0;right:0;bottom:0;height:5px;background:rgba(255,255,255,.18)}
+  .cover-progress i{display:block;height:100%;width:0;background:var(--gold)}
+  .restart-link{position:absolute;z-index:4;left:12px;top:12px;padding:7px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:rgba(10,2,25,.7);font-weight:800;font-size:13px;cursor:pointer}
+  .restart-link[hidden],.resume-chip[hidden],.cover-progress[hidden]{display:none}
+  .vo{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(14,3,32,.82);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);animation:enter .3s ease both}
+  .vo[hidden]{display:none}
+  .vo-box{text-align:center;max-width:440px}
+  .vo-title{font-weight:900;font-size:clamp(16px,2.2vw,24px);line-height:1.25}
+  .vo-actions{margin-top:16px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  .vo-btn{padding:12px 18px;border-radius:12px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);font-weight:900;font-size:15px;cursor:pointer}
+  .vo-btn.primary{background:linear-gradient(180deg,var(--gold-soft),var(--gold));color:#1a0638;border:0}
+  .vo-btn[hidden]{display:none}
   .tip{margin-top:14px;font-size:14px;color:var(--muted);font-weight:700;text-align:center}
 
   /* Oferta (liberada no minuto do vídeo) */
@@ -488,18 +502,31 @@
   <!-- SUPER AULA -->
   <section class="screen final" data-step="final">
     <div class="badge"><i></i>Acesso liberado</div>
-    <h2>Descubra os <em>5 passos d'O Vídeo que Vende</em> que fazem o corretor gerar <em>conversa</em>, não só visualização.</h2>
+    <h2>Um vídeo de 22 segundos, feito no celular, gerou <em>R$ 8 milhões em vendas</em>. Aprenda as <em>5 decisões</em> que fizeram isso acontecer.</h2>
+    <p class="sub-h">Mesmo imóvel. Mesmo celular. A única coisa que muda são as decisões, e elas valem para o próximo imóvel que você for vender.</p>
     <div class="player" id="player">
       <button class="cover" id="cover" type="button" aria-label="Assistir a Super Aula">
         <img src="img/capa-super-aula.webp" alt="" width="1280" height="720" loading="lazy" decoding="async">
         <span class="cover-text">
           <small>Super Aula</small>
           <strong>O Vídeo<br>que <span>Vende</span></strong>
-          <p>Os 5 passos para gerar conversa</p>
+          <p>As 5 decisões do vídeo de R$ 8 milhões</p>
         </span>
         <span class="play"><svg viewBox="0 0 24 24"><path d="M6 4l15 8-15 8z"/></svg></span>
         <span class="duration">37 min</span>
+        <span class="resume-chip" id="resumeChip" hidden></span>
+        <span class="cover-progress" id="coverProgress" hidden><i></i></span>
       </button>
+      <button class="restart-link" id="restartLink" type="button" hidden>↺ Assistir do início</button>
+      <div class="vo" id="videoOverlay" hidden>
+        <div class="vo-box">
+          <p class="vo-title" id="voTitle"></p>
+          <div class="vo-actions">
+            <button type="button" class="vo-btn primary" id="voPrimary"></button>
+            <button type="button" class="vo-btn" id="voSecondary"></button>
+          </div>
+        </div>
+      </div>
     </div>
     <p class="tip">Assista até o final. O passo 5 é o que mais faz diferença.</p>
 
@@ -780,29 +807,88 @@
   }
 
   var PREVIEW_START = 2155; // 35:55, usado só na prévia
+  var KEY_POS = 'eaglle_vqv_posicao';
+  var KEY_DUR = 'eaglle_vqv_duracao';
   var player = document.getElementById('player');
-  document.getElementById('cover').addEventListener('click', function(){
+  var coverEl = document.getElementById('cover');
+  var restartLink = document.getElementById('restartLink');
+  var vo = document.getElementById('videoOverlay');
+  var voTitle = document.getElementById('voTitle');
+  var voPrimary = document.getElementById('voPrimary');
+  var voSecondary = document.getElementById('voSecondary');
+  var ctl = null;          // controle do player ativo (play, seek)
+  var lastSaved = 0;
+
+  function fmt(s){ s = Math.max(0, Math.floor(s)); var m = Math.floor(s/60), r = s%60; return m + ':' + (r<10?'0':'') + r; }
+  function savedPos(){ var v = parseFloat(read(KEY_POS)); return isFinite(v) ? v : 0; }
+  function savePos(sec, force){
+    if(!isFinite(sec)) return;
+    if(force || Math.abs(sec - lastSaved) >= 3){ lastSaved = sec; store(KEY_POS, String(Math.floor(sec))); }
+  }
+
+  // Capa: mostra "Continuar de X" quando a pessoa já assistiu uma parte
+  function setupResumeCover(){
+    var pos = savedPos(), dur = parseFloat(read(KEY_DUR)) || 0;
+    if(PREVIEW || pos < 15 || (dur && pos > dur - 20)) return;
+    var chip = document.getElementById('resumeChip');
+    chip.textContent = 'Continuar de ' + fmt(pos);
+    chip.hidden = false;
+    if(dur){ var pr = document.getElementById('coverProgress'); pr.hidden = false; pr.firstElementChild.style.width = Math.min(100, pos/dur*100) + '%'; }
+    restartLink.hidden = false;
+    coverEl.setAttribute('aria-label', 'Continuar a Super Aula de ' + fmt(pos));
+  }
+
+  function hideOverlay(){ vo.hidden = true; }
+  function showOverlay(kind, sec){
+    if(kind === 'pause'){
+      voTitle.textContent = 'Aula pausada em ' + fmt(sec);
+      voPrimary.textContent = '▶ Continuar de onde parei';
+      voSecondary.textContent = '↺ Assistir do início';
+      voSecondary.hidden = false;
+      voPrimary.onclick = function(){ hideOverlay(); ctl && ctl.play(); };
+      voSecondary.onclick = function(){ hideOverlay(); ctl && ctl.seek(0, true); track('superaula_reiniciar'); };
+    } else {
+      voTitle.textContent = 'Você concluiu a Super Aula';
+      voPrimary.textContent = '↺ Assistir novamente';
+      voPrimary.onclick = function(){ hideOverlay(); ctl && ctl.seek(0, true); track('superaula_reassistir'); };
+      if(unlocked){
+        voSecondary.textContent = 'Ver a oferta';
+        voSecondary.hidden = false;
+        voSecondary.onclick = function(){ offerEl.scrollIntoView({behavior:'smooth', block:'start'}); };
+      } else voSecondary.hidden = true;
+    }
+    vo.hidden = false;
+  }
+
+  function startVideo(fromSec){
     var e = embedUrl(CFG.videoUrl);
-    track('superaula_play');
     if(!e) return;
+    if(PREVIEW) fromSec = PREVIEW_START;
+    fromSec = Math.max(0, Math.floor(fromSec || 0));
+    track('superaula_play', {retomou_em: fromSec});
     var el;
+    Array.prototype.slice.call(player.children).forEach(function(c){ if(c !== vo) c.remove(); });
     if(e.type === 'video'){
       el = document.createElement('video');
       el.src = e.src; el.controls = true; el.autoplay = true; el.playsInline = true;
       el.setAttribute('playsinline','');
-      if(PREVIEW) el.addEventListener('loadedmetadata', function(){ try{ el.currentTime = Math.min(PREVIEW_START, Math.max(0, el.duration - 3)); }catch(x){} }, {once:true});
+      el.addEventListener('loadedmetadata', function(){
+        try{ el.currentTime = Math.min(fromSec, Math.max(0, el.duration - 3)); }catch(x){}
+      }, {once:true});
     } else {
       el = document.createElement('iframe');
-      el.src = e.src + (PREVIEW && /player\.vimeo\.com/.test(e.src) ? '#t=' + PREVIEW_START + 's' : '');
+      el.src = e.src + (fromSec && /player\.vimeo\.com/.test(e.src) ? '#t=' + fromSec + 's' : '');
       el.allow = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
       el.allowFullscreen = true;
       el.title = 'Super Aula O Vídeo que Vende';
     }
-    player.innerHTML = '';
-    player.appendChild(el);
+    player.insertBefore(el, vo);
     if(e.type === 'video') watchVideoTag(el);
-    else if(/player\.vimeo\.com/.test(e.src)) watchVimeo(el);
-  });
+    else if(/player\.vimeo\.com/.test(e.src)) watchVimeo(el, fromSec);
+  }
+
+  coverEl.addEventListener('click', function(){ startVideo(savedPos()); });
+  restartLink.addEventListener('click', function(ev){ ev.stopPropagation(); store(KEY_POS, '0'); startVideo(0); });
 
   // ---------- Oferta liberada no minuto do vídeo ----------
   var OFFER = CFG.offer || {};
@@ -813,6 +899,7 @@
   var sticky = document.getElementById('stickyCta');
   var priceBox = document.getElementById('price');
   var unlocked = false;
+  if(sticky) document.body.appendChild(sticky); // fora das telas animadas, para ficar fixa de verdade
 
   function store(k, v){ if(PREVIEW) return; try{ localStorage.setItem(k, v); }catch(e){} }
   function read(k){ if(PREVIEW) return null; try{ return localStorage.getItem(k); }catch(e){ return null; } }
@@ -864,20 +951,45 @@
   }
   function checkTime(sec){ if(sec >= (OFFER.unlockAt || 0)) unlockOffer(true); }
 
-  function watchVideoTag(v){
-    v.addEventListener('timeupdate', function(){
-      if(PREVIEW){ if(v.currentTime >= Math.min(OFFER.unlockAt, v.duration - 1)) unlockOffer(true); }
-      else checkTime(v.currentTime);
-    });
+  function onTime(sec, dur){
+    if(PREVIEW && dur){ if(sec >= Math.min(OFFER.unlockAt, dur - 1)) unlockOffer(true); }
+    else checkTime(sec);
+    savePos(sec);
   }
-  function watchVimeo(iframe){
+
+  function watchVideoTag(v){
+    ctl = {
+      play: function(){ v.play(); },
+      seek: function(s, andPlay){ v.currentTime = s; if(andPlay) v.play(); }
+    };
+    v.addEventListener('timeupdate', function(){ onTime(v.currentTime, v.duration); });
+    v.addEventListener('loadedmetadata', function(){ if(v.duration) store(KEY_DUR, String(Math.floor(v.duration))); });
+    v.addEventListener('pause', function(){ if(!v.ended && !v.seeking){ savePos(v.currentTime, true); showOverlay('pause', v.currentTime); } });
+    v.addEventListener('play', hideOverlay);
+    v.addEventListener('ended', function(){ store(KEY_POS, '0'); track('superaula_fim_video'); showOverlay('ended'); });
+  }
+
+  function watchVimeo(iframe, fromSec){
     function attach(){
       try{
         var p = new window.Vimeo.Player(iframe);
-        p.on('timeupdate', function(d){ checkTime(d.seconds); });
-        p.on('seeked', function(d){ checkTime(d.seconds); });
-        p.on('play', function(){ track('superaula_inicio_video'); });
-        p.on('ended', function(){ track('superaula_fim_video'); unlockOffer(true); });
+        var dur = 0;
+        ctl = {
+          play: function(){ p.play().catch(function(){}); },
+          seek: function(s, andPlay){ p.setCurrentTime(s).then(function(){ if(andPlay) p.play().catch(function(){}); }).catch(function(){}); }
+        };
+        p.getDuration().then(function(d){ dur = d; store(KEY_DUR, String(Math.floor(d))); }).catch(function(){});
+        p.on('loaded', function(){
+          // garante a retomada mesmo se o navegador ignorar o #t
+          if(fromSec > 2) p.getCurrentTime().then(function(c){ if(Math.abs(c - fromSec) > 3) p.setCurrentTime(fromSec).catch(function(){}); }).catch(function(){});
+        });
+        p.on('timeupdate', function(d){ onTime(d.seconds, d.duration || dur); });
+        p.on('seeked', function(d){ checkTime(d.seconds); savePos(d.seconds, true); });
+        p.on('play', function(){ hideOverlay(); track('superaula_inicio_video'); });
+        p.on('pause', function(d){ savePos(d.seconds, true); if(!(dur && d.seconds >= dur - 1)) showOverlay('pause', d.seconds); });
+        p.on('ended', function(){ store(KEY_POS, '0'); track('superaula_fim_video'); showOverlay('ended'); });
+        // salva a posição ao sair ou trocar de aba
+        document.addEventListener('visibilitychange', function(){ if(document.hidden) p.getCurrentTime().then(function(c){ savePos(c, true); }).catch(function(){}); });
       }catch(err){}
     }
     if(window.Vimeo && window.Vimeo.Player) return attach();
@@ -893,6 +1005,7 @@
   if(read(KEY_OFFER) === '1') unlockOffer(false);
   var startFinal = PREVIEW || (read(KEY_DONE) === '1' && !params.has('refazer'));
 
+  setupResumeCover();
   if(startFinal){
     track('superaula_retorno', utm);
     show('final');
