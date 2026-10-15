@@ -223,6 +223,35 @@
   .vo-btn{padding:12px 18px;border-radius:12px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);font-weight:900;font-size:15px;cursor:pointer}
   .vo-btn.primary{background:linear-gradient(180deg,var(--gold-soft),var(--gold));color:#1a0638;border:0}
   .vo-btn[hidden]{display:none}
+  /* Player com controles próprios */
+  .player.has-video{background:#000}
+  .tap-layer{position:absolute;inset:0;z-index:2;background:transparent;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .vbar{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;align-items:center;gap:10px;padding:18px 12px 12px;
+    background:linear-gradient(0deg,rgba(8,1,20,.75),rgba(8,1,20,0));pointer-events:none}
+  .vtrack{position:relative;flex:1;height:6px;border-radius:99px;background:rgba(255,255,255,.16);overflow:visible}
+  .vfill{position:relative;display:block;height:100%;width:0;border-radius:99px;transition:width .5s linear;
+    background:linear-gradient(90deg,#c98f00,var(--gold) 40%,var(--gold-soft) 70%,var(--gold));background-size:200% 100%;
+    animation:barFlow 2.4s linear infinite;box-shadow:0 0 10px rgba(242,180,12,.75),0 0 22px rgba(242,180,12,.45)}
+  .vfill b{position:absolute;right:-5px;top:50%;width:12px;height:12px;margin-top:-6px;border-radius:50%;background:#fff6d6;
+    box-shadow:0 0 8px #fff,0 0 18px var(--gold),0 0 30px rgba(242,180,12,.8);animation:dotPulse 1.6s ease-in-out infinite}
+  .vfill::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,transparent,rgba(255,255,255,.65),transparent);
+    background-size:40% 100%;background-repeat:no-repeat;animation:shine 2.2s ease-in-out infinite}
+  @keyframes barFlow{to{background-position:-200% 0}}
+  @keyframes shine{0%{background-position:-40% 0}100%{background-position:140% 0}}
+  @keyframes dotPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
+  .vbtn{pointer-events:auto;flex:none;width:34px;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.22);background:rgba(10,2,25,.55);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity .3s ease}
+  .vbtn svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .vbtn[hidden]{display:none}
+  .player.is-playing:not(.ui-on) .vbtn{opacity:0}
+  .sound-pill{position:absolute;z-index:4;left:50%;top:14px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:99px;border:0;
+    background:var(--gold);color:#1a0638;font-weight:900;font-size:14px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:pulse 2.2s ease-in-out infinite;white-space:nowrap}
+  .sound-pill svg{width:18px;height:18px;fill:none;stroke:#1a0638;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .sound-pill[hidden]{display:none}
+  .vo-title[hidden]{display:none}
+  .vo-actions{margin-top:0}
+  .vo-title:not([hidden]) + .vo-actions{margin-top:16px}
+  .player:fullscreen,.player:-webkit-full-screen{max-width:none;width:100%;height:100%;border-radius:0;aspect-ratio:auto}
   .tip{margin-top:14px;font-size:14px;color:var(--muted);font-weight:700;text-align:center}
 
   /* Oferta (liberada no minuto do vídeo) */
@@ -800,7 +829,7 @@
       return {type:'iframe', src:'https://www.youtube.com/embed/' + m[1] + '?autoplay=1&rel=0&modestbranding=1&playsinline=1'};
     if((m = url.match(/vimeo\.com\/(?:video\/)?(\d+)(?:\/([a-f0-9]{6,}))?/))){
       var h = m[2] || (url.match(/[?&]h=([a-f0-9]+)/) || [])[1];
-      return {type:'iframe', src:'https://player.vimeo.com/video/' + m[1] + '?' + (h ? 'h=' + h + '&' : '') + 'autoplay=1&title=0&byline=0&portrait=0&playsinline=1&color=f2b40c'};
+      return {type:'iframe', src:'https://player.vimeo.com/video/' + m[1] + '?' + (h ? 'h=' + h + '&' : '') + 'autoplay=1&controls=0&title=0&byline=0&portrait=0&playsinline=1&dnt=1&keyboard=0&color=f2b40c'};
     }
     if(/\.(mp4|webm|mov)(\?|$)/i.test(url)) return {type:'video', src:url};
     return {type:'iframe', src:url};
@@ -838,15 +867,23 @@
     coverEl.setAttribute('aria-label', 'Continuar a Super Aula de ' + fmt(pos));
   }
 
+  // ---------- Controles próprios do player ----------
+  var ui = null; // {tap, bar, fill, sound, fs}
+  var isPlaying = false, startedOnce = false, hideTimer = null;
+
   function hideOverlay(){ vo.hidden = true; }
-  function showOverlay(kind, sec){
+  function showOverlay(kind){
+    voTitle.hidden = (kind === 'pause');
     if(kind === 'pause'){
-      voTitle.textContent = 'Aula pausada em ' + fmt(sec);
       voPrimary.textContent = '▶ Continuar de onde parei';
       voSecondary.textContent = '↺ Assistir do início';
       voSecondary.hidden = false;
       voPrimary.onclick = function(){ hideOverlay(); ctl && ctl.play(); };
       voSecondary.onclick = function(){ hideOverlay(); ctl && ctl.seek(0, true); track('superaula_reiniciar'); };
+    } else if(kind === 'start'){
+      voPrimary.textContent = '▶ Assistir a aula';
+      voSecondary.hidden = true;
+      voPrimary.onclick = function(){ hideOverlay(); ctl && ctl.play(); };
     } else {
       voTitle.textContent = 'Você concluiu a Super Aula';
       voPrimary.textContent = '↺ Assistir novamente';
@@ -860,6 +897,57 @@
     vo.hidden = false;
   }
 
+  function setProgress(sec, dur){
+    if(!ui || !dur) return;
+    ui.fill.style.width = Math.max(0, Math.min(100, sec / dur * 100)) + '%';
+  }
+  function wakeControls(){
+    if(!ui) return;
+    player.classList.add('ui-on');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(function(){ if(isPlaying) player.classList.remove('ui-on'); }, 2600);
+  }
+  function setPlaying(on){
+    isPlaying = on;
+    player.classList.toggle('is-playing', on);
+    if(on){ startedOnce = true; hideOverlay(); wakeControls(); } else player.classList.add('ui-on');
+  }
+  function updateSound(muted){ if(ui) ui.sound.hidden = !muted; }
+
+  function buildUI(){
+    var tap = document.createElement('button');
+    tap.className = 'tap-layer'; tap.type = 'button'; tap.setAttribute('aria-label', 'Pausar ou continuar a aula');
+    var bar = document.createElement('div');
+    bar.className = 'vbar';
+    bar.innerHTML = '<div class="vtrack"><i class="vfill"><b></b></i></div>' +
+      '<button type="button" class="vbtn vfs" aria-label="Tela cheia"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>';
+    var sound = document.createElement('button');
+    sound.type = 'button'; sound.className = 'sound-pill'; sound.hidden = true;
+    sound.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>Toque para ativar o som';
+    player.insertBefore(tap, vo);
+    player.insertBefore(bar, vo);
+    player.insertBefore(sound, vo);
+    ui = {tap: tap, bar: bar, fill: bar.querySelector('.vfill'), sound: sound, fs: bar.querySelector('.vfs')};
+
+    tap.addEventListener('click', function(){
+      if(!ctl) return;
+      if(isPlaying){ ctl.pause(); }
+      else { hideOverlay(); ctl.play(); }
+    });
+    player.addEventListener('mousemove', wakeControls);
+    player.addEventListener('touchstart', wakeControls, {passive:true});
+    sound.addEventListener('click', function(){ ctl && ctl.unmute(); sound.hidden = true; });
+
+    // Tela cheia do bloco inteiro (assim a barra e os menus continuam aparecendo)
+    var canFS = player.requestFullscreen || player.webkitRequestFullscreen;
+    if(!canFS) ui.fs.hidden = true;
+    ui.fs.addEventListener('click', function(){
+      var d = document;
+      if(d.fullscreenElement || d.webkitFullscreenElement){ (d.exitFullscreen || d.webkitExitFullscreen).call(d); }
+      else { (player.requestFullscreen || player.webkitRequestFullscreen).call(player); }
+    });
+  }
+
   function startVideo(fromSec){
     var e = embedUrl(CFG.videoUrl);
     if(!e) return;
@@ -868,9 +956,11 @@
     track('superaula_play', {retomou_em: fromSec});
     var el;
     Array.prototype.slice.call(player.children).forEach(function(c){ if(c !== vo) c.remove(); });
+    ui = null; isPlaying = false; startedOnce = false;
+    player.classList.add('has-video', 'ui-on');
     if(e.type === 'video'){
       el = document.createElement('video');
-      el.src = e.src; el.controls = true; el.autoplay = true; el.playsInline = true;
+      el.src = e.src; el.controls = false; el.autoplay = true; el.playsInline = true;
       el.setAttribute('playsinline','');
       el.addEventListener('loadedmetadata', function(){
         try{ el.currentTime = Math.min(fromSec, Math.max(0, el.duration - 3)); }catch(x){}
@@ -883,8 +973,11 @@
       el.title = 'Super Aula O Vídeo que Vende';
     }
     player.insertBefore(el, vo);
+    buildUI();
     if(e.type === 'video') watchVideoTag(el);
     else if(/player\.vimeo\.com/.test(e.src)) watchVimeo(el, fromSec);
+    // Se o navegador bloquear o início automático, mostra um botão grande de play
+    setTimeout(function(){ if(!startedOnce) showOverlay('start'); }, 2500);
   }
 
   coverEl.addEventListener('click', function(){ startVideo(savedPos()); });
@@ -959,14 +1052,16 @@
 
   function watchVideoTag(v){
     ctl = {
-      play: function(){ v.play(); },
-      seek: function(s, andPlay){ v.currentTime = s; if(andPlay) v.play(); }
+      play: function(){ v.play().catch(function(){ v.muted = true; v.play(); updateSound(true); }); },
+      pause: function(){ v.pause(); },
+      seek: function(s, andPlay){ v.currentTime = s; if(andPlay) ctl.play(); },
+      unmute: function(){ v.muted = false; }
     };
-    v.addEventListener('timeupdate', function(){ onTime(v.currentTime, v.duration); });
+    v.addEventListener('timeupdate', function(){ onTime(v.currentTime, v.duration); setProgress(v.currentTime, v.duration); });
     v.addEventListener('loadedmetadata', function(){ if(v.duration) store(KEY_DUR, String(Math.floor(v.duration))); });
-    v.addEventListener('pause', function(){ if(!v.ended && !v.seeking){ savePos(v.currentTime, true); showOverlay('pause', v.currentTime); } });
-    v.addEventListener('play', hideOverlay);
-    v.addEventListener('ended', function(){ store(KEY_POS, '0'); track('superaula_fim_video'); showOverlay('ended'); });
+    v.addEventListener('play', function(){ setPlaying(true); updateSound(v.muted); });
+    v.addEventListener('pause', function(){ setPlaying(false); if(!v.ended){ savePos(v.currentTime, true); showOverlay('pause'); } });
+    v.addEventListener('ended', function(){ setPlaying(false); store(KEY_POS, '0'); track('superaula_fim_video'); showOverlay('ended'); });
   }
 
   function watchVimeo(iframe, fromSec){
@@ -975,20 +1070,29 @@
         var p = new window.Vimeo.Player(iframe);
         var dur = 0;
         ctl = {
-          play: function(){ p.play().catch(function(){}); },
-          seek: function(s, andPlay){ p.setCurrentTime(s).then(function(){ if(andPlay) p.play().catch(function(){}); }).catch(function(){}); }
+          play: function(){
+            p.play().catch(function(){
+              // celular bloqueou o som: toca sem som e oferece o botão de ativar
+              p.setMuted(true).then(function(){ return p.play(); }).then(function(){ updateSound(true); }).catch(function(){});
+            });
+          },
+          pause: function(){ p.pause().catch(function(){}); },
+          seek: function(s, andPlay){ p.setCurrentTime(s).then(function(){ if(andPlay) ctl.play(); }).catch(function(){}); },
+          unmute: function(){ p.setMuted(false).catch(function(){}); p.setVolume(1).catch(function(){}); }
         };
         p.getDuration().then(function(d){ dur = d; store(KEY_DUR, String(Math.floor(d))); }).catch(function(){});
         p.on('loaded', function(){
-          // garante a retomada mesmo se o navegador ignorar o #t
           if(fromSec > 2) p.getCurrentTime().then(function(c){ if(Math.abs(c - fromSec) > 3) p.setCurrentTime(fromSec).catch(function(){}); }).catch(function(){});
         });
-        p.on('timeupdate', function(d){ onTime(d.seconds, d.duration || dur); });
-        p.on('seeked', function(d){ checkTime(d.seconds); savePos(d.seconds, true); });
-        p.on('play', function(){ hideOverlay(); track('superaula_inicio_video'); });
-        p.on('pause', function(d){ savePos(d.seconds, true); if(!(dur && d.seconds >= dur - 1)) showOverlay('pause', d.seconds); });
-        p.on('ended', function(){ store(KEY_POS, '0'); track('superaula_fim_video'); showOverlay('ended'); });
-        // salva a posição ao sair ou trocar de aba
+        p.on('timeupdate', function(d){ onTime(d.seconds, d.duration || dur); setProgress(d.seconds, d.duration || dur); });
+        p.on('seeked', function(d){ checkTime(d.seconds); savePos(d.seconds, true); setProgress(d.seconds, d.duration || dur); });
+        p.on('play', function(){
+          setPlaying(true); track('superaula_inicio_video');
+          p.getMuted().then(function(m){ if(m) updateSound(true); else p.getVolume().then(function(vl){ updateSound(vl === 0); }); }).catch(function(){});
+        });
+        p.on('volumechange', function(d){ updateSound(d.volume === 0); });
+        p.on('pause', function(d){ setPlaying(false); savePos(d.seconds, true); if(!(dur && d.seconds >= dur - 1)) showOverlay('pause'); });
+        p.on('ended', function(){ setPlaying(false); store(KEY_POS, '0'); track('superaula_fim_video'); showOverlay('ended'); });
         document.addEventListener('visibilitychange', function(){ if(document.hidden) p.getCurrentTime().then(function(c){ savePos(c, true); }).catch(function(){}); });
       }catch(err){}
     }
