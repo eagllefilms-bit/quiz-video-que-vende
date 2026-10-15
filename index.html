@@ -7,6 +7,21 @@
 <meta name="description" content="Responda 4 perguntas rápidas e libere a Super Aula: os 5 passos d'O Vídeo que Vende.">
 <meta name="theme-color" content="#1a0638">
 
+<!-- Favicon -->
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<!-- Compartilhamento (WhatsApp, Instagram, Facebook) -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://quiz.eagllemobile.com.br/">
+<meta property="og:title" content="O Vídeo que Vende | Super Aula Eaglle">
+<meta property="og:description" content="Responda 4 perguntas e libere a Super Aula com os 5 passos que fazem o corretor gerar conversa, não só visualização.">
+<meta property="og:image" content="https://quiz.eagllemobile.com.br/img/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
 <!-- ============================================================
      CONFIGURAÇÃO (edite só este bloco)
      ============================================================ -->
@@ -15,8 +30,8 @@
     // ID do Google Tag Manager. Deixe "" para desativar.
     gtmId: "GTM-KVD5FVLP",
 
-    // Link da Super Aula. Aceita YouTube (normal ou Shorts), Vimeo ou um arquivo .mp4
-    videoUrl: "",
+    // Link da Super Aula. Aceita YouTube, Vimeo (inclusive link privado com hash) ou um arquivo .mp4
+    videoUrl: "https://vimeo.com/1236315892/e0c0be870a",
 
     // Opcional: URL de webhook (n8n, Make, Supabase Edge Function) que recebe as respostas em JSON.
     webhookUrl: "",
@@ -41,20 +56,25 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://player.vimeo.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="img/q1-sim.webp" type="image/webp">
+<link rel="preload" as="image" href="img/q1-nao.webp" type="image/webp">
 
 <style>
   :root{
     --bg-deep:#1a0638;
-    --bg-mid:#2a0a55;
-    --violet:#5a17a0;
     --gold:#f2b40c;
     --gold-soft:#ffd25a;
     --card:rgba(24,8,48,.72);
-    --card-label:rgba(52,22,92,.65);
+    --card-label:rgba(52,22,92,.72);
     --border:rgba(170,120,255,.18);
     --text:#ffffff;
     --muted:rgba(255,255,255,.72);
+    /* espaço vertical reservado para topo, pergunta e respiros (usado para caber na tela) */
+    --reserve:300px;
+    --label-h:50px;
+    --gap:22px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{min-height:100%}
@@ -65,7 +85,7 @@
     overflow-x:hidden;
     -webkit-font-smoothing:antialiased;
   }
-  /* Fundo com brilhos */
+  button{font:inherit;color:inherit}
   .bg{position:fixed;inset:0;z-index:0;pointer-events:none;
     background:
       radial-gradient(60% 45% at 38% 0%, rgba(110,30,190,.85) 0%, rgba(80,20,150,.35) 45%, transparent 75%),
@@ -73,17 +93,19 @@
       radial-gradient(45% 35% at 95% 100%, rgba(120,40,110,.55) 0%, transparent 70%),
       linear-gradient(180deg, #2d0a5c 0%, var(--bg-deep) 45%, #170433 100%);
   }
-  .app{position:relative;z-index:1;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:16px 16px 40px}
+  .app{position:relative;z-index:1;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;
+    padding:max(14px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom))}
 
   /* Topo */
   .top{width:100%;max-width:508px;display:flex;flex-direction:column;align-items:center;gap:12px;padding-top:4px}
   .brand{color:var(--gold);font-weight:900;font-size:14px;letter-spacing:.32em;padding-left:.32em}
   .progress{width:100%;height:5px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
   .progress > i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--gold),var(--gold-soft));transition:width .6s cubic-bezier(.2,.8,.2,1)}
-  .top.no-bar .progress{display:none}
+  .step-count{font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.04em;margin-top:-4px}
+  .top.no-bar .progress,.top.no-bar .step-count{display:none}
 
   /* Telas */
-  .screen{width:100%;display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;padding:32px 0 8px}
+  .screen{width:100%;display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;padding:24px 0 8px}
   .screen.active{display:flex;animation:enter .5s cubic-bezier(.2,.8,.2,1) both}
   .screen.leaving{display:flex;animation:leave .28s ease both}
   @keyframes enter{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:none}}
@@ -91,44 +113,53 @@
 
   .question{
     width:100%;max-width:840px;
-    background:var(--card);
-    border:1px solid var(--border);
-    border-radius:18px;
-    padding:28px 24px;
-    text-align:center;
+    background:var(--card);border:1px solid var(--border);border-radius:18px;
+    padding:24px 24px;text-align:center;
     box-shadow:0 20px 50px rgba(0,0,0,.35);
-    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
   }
-  .question h1{font-weight:900;font-size:clamp(24px,3.6vw,40px);line-height:1.15;text-shadow:0 2px 0 rgba(0,0,0,.25)}
+  .question h1{font-weight:900;font-size:clamp(22px,3.4vw,40px);line-height:1.15;text-shadow:0 2px 0 rgba(0,0,0,.25);text-wrap:balance}
 
-  .options{width:100%;display:grid;gap:22px;margin-top:22px}
-  .options.two{max-width:852px;grid-template-columns:repeat(2,1fr)}
-  .options.four{max-width:606px;grid-template-columns:repeat(2,1fr);gap:16px}
+  /* Grades de opções: a largura é limitada pela altura da tela para tudo caber sem rolar */
+  .options{width:100%;display:grid;gap:var(--gap);margin-top:20px}
+  .options.two{
+    grid-template-columns:repeat(2,1fr);
+    max-width:min(852px, max(300px, calc(1.6 * (100vh - var(--reserve) - var(--label-h)) + var(--gap))));
+    max-width:min(852px, max(300px, calc(1.6 * (100dvh - var(--reserve) - var(--label-h)) + var(--gap))));
+  }
+  .options.four{
+    grid-template-columns:repeat(4,1fr);gap:16px;
+    max-width:min(1040px, max(300px, calc(3.2 * (100vh - var(--reserve) - var(--label-h)) + 48px)));
+    max-width:min(1040px, max(300px, calc(3.2 * (100dvh - var(--reserve) - var(--label-h)) + 48px)));
+  }
 
   .opt{
     position:relative;display:flex;flex-direction:column;cursor:pointer;
     background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;
-    color:var(--text);font:inherit;text-align:center;
-    transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;
-    -webkit-tap-highlight-color:transparent;
+    text-align:center;
+    transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease, opacity .25s ease;
+    -webkit-tap-highlight-color:transparent;touch-action:manipulation;
   }
-  .opt:hover{transform:translateY(-4px);border-color:rgba(242,180,12,.55);box-shadow:0 18px 40px rgba(0,0,0,.4),0 0 0 1px rgba(242,180,12,.25)}
+  @media (hover:hover){
+    .opt:hover{transform:translateY(-4px);border-color:rgba(242,180,12,.55);box-shadow:0 18px 40px rgba(0,0,0,.4),0 0 0 1px rgba(242,180,12,.25)}
+    .opt:hover .media img{transform:scale(1.05)}
+  }
+  .opt:active{transform:scale(.97)}
   .opt:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
-  .opt.picked{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 0 40px rgba(242,180,12,.35);transform:scale(1.02)}
-  .opt.dim{opacity:.45;transform:scale(.98)}
+  .opt.picked{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 0 44px rgba(242,180,12,.4);transform:scale(1.03)}
+  .opt.picked .label{background:linear-gradient(90deg,#c98f00,var(--gold));color:#1a0638}
+  .opt.dim{opacity:.4;transform:scale(.97)}
+  .opt .check{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:50%;background:var(--gold);color:#1a0638;
+    display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;
+    transform:scale(0);transition:transform .3s cubic-bezier(.3,1.6,.5,1);z-index:2;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+  .opt.picked .check{transform:scale(1)}
 
   .media{position:relative;aspect-ratio:4/5;overflow:hidden;
     background:radial-gradient(70% 60% at 50% 45%, rgba(130,50,220,.45), transparent 70%), #160532}
-  .options.four .media{aspect-ratio:29/32}
-  .media img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s ease}
-  .opt:hover .media img{transform:scale(1.04)}
-  .media .ph{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:rgba(255,255,255,.45);font-weight:800;font-size:13px;padding:12px}
-  .media .ph b{font-size:40px;color:var(--gold);opacity:.8}
-  .media.missing img{display:none}
-  .media.missing .ph{display:flex}
-
-  .label{padding:15px 12px;background:var(--card-label);font-weight:900;font-size:16px}
-  .options.four .label{font-size:15px;padding:13px 10px}
+  .media img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s ease, opacity .4s ease;opacity:0}
+  .media img.ok{opacity:1}
+  .label{min-height:var(--label-h);display:flex;align-items:center;justify-content:center;padding:10px 10px;background:var(--card-label);font-weight:900;font-size:16px;line-height:1.2;transition:background .25s ease,color .25s ease}
+  .options.four .label{font-size:15px}
 
   /* Carregando */
   .loading{gap:18px}
@@ -137,36 +168,63 @@
   .loading p{font-weight:800;font-size:17px}
 
   /* Super Aula */
-  .final{justify-content:flex-start;padding-top:18px}
-  .final h2{max-width:840px;text-align:center;font-weight:900;font-size:clamp(26px,4vw,44px);line-height:1.2;text-shadow:0 2px 0 rgba(0,0,0,.25)}
+  .final{justify-content:flex-start;padding-top:14px}
+  .badge{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:99px;
+    background:rgba(242,180,12,.12);border:1px solid rgba(242,180,12,.4);color:var(--gold-soft);font-weight:900;font-size:13px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px}
+  .badge i{width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px var(--gold)}
+  .final h2{max-width:900px;text-align:center;font-weight:900;font-size:clamp(24px,3.6vw,42px);line-height:1.2;text-shadow:0 2px 0 rgba(0,0,0,.25);text-wrap:balance}
   .final h2 em{font-style:normal;color:var(--gold)}
   .player{
-    position:relative;margin-top:36px;width:100%;max-width:428px;aspect-ratio:9/16;
+    position:relative;margin-top:28px;width:100%;
+    max-width:min(960px, calc((100vh - 340px) * 16 / 9));
+    max-width:min(960px, calc((100dvh - 340px) * 16 / 9));
+    min-width:min(100%, 320px);
+    aspect-ratio:16/9;
     border-radius:18px;overflow:hidden;background:#10021f;
-    border:1px solid var(--border);box-shadow:0 30px 70px rgba(0,0,0,.5);
+    border:1px solid rgba(242,180,12,.28);box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 60px rgba(110,30,190,.35);
   }
   .player iframe,.player video{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+  .cover{position:absolute;inset:0;width:100%;height:100%;border:0;cursor:pointer;padding:0;background:#10021f;display:block;text-align:left}
+  .cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .8s ease}
+  .cover::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg, rgba(20,4,45,.92) 0%, rgba(20,4,45,.65) 34%, rgba(20,4,45,0) 62%)}
+  @media (hover:hover){ .cover:hover img{transform:scale(1.03)} }
+  .cover-text{position:absolute;z-index:2;left:6%;top:50%;transform:translateY(-50%);max-width:44%}
+  .cover-text small{display:block;color:var(--gold-soft);font-weight:900;font-size:clamp(10px,1.4vw,14px);letter-spacing:.18em;text-transform:uppercase;margin-bottom:8px}
+  .cover-text strong{display:block;font-weight:900;font-size:clamp(20px,4vw,44px);line-height:1.02;color:#fff;text-shadow:0 3px 18px rgba(0,0,0,.5)}
+  .cover-text strong span{color:var(--gold)}
+  .cover-text p{margin-top:10px;font-weight:800;font-size:clamp(11px,1.5vw,16px);color:var(--muted)}
   .play{
-    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-    width:78px;height:78px;border-radius:50%;border:0;cursor:pointer;
+    position:absolute;z-index:3;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:clamp(58px,8vw,84px);height:clamp(58px,8vw,84px);border-radius:50%;
     background:var(--gold);display:flex;align-items:center;justify-content:center;
-    box-shadow:0 10px 30px rgba(242,180,12,.35);
     animation:pulse 2.2s ease-in-out infinite;
   }
-  .play svg{width:22px;height:22px;margin-left:4px;fill:#1a0638}
-  @keyframes pulse{0%,100%{box-shadow:0 10px 30px rgba(242,180,12,.35),0 0 0 0 rgba(242,180,12,.45)}50%{box-shadow:0 10px 30px rgba(242,180,12,.35),0 0 0 16px rgba(242,180,12,0)}}
-  .player .note{position:absolute;left:0;right:0;bottom:18px;text-align:center;font-size:13px;color:var(--muted);padding:0 16px}
+  .play svg{width:34%;height:34%;margin-left:6%;fill:#1a0638}
+  @keyframes pulse{0%,100%{box-shadow:0 10px 30px rgba(242,180,12,.35),0 0 0 0 rgba(242,180,12,.5)}50%{box-shadow:0 10px 30px rgba(242,180,12,.35),0 0 0 18px rgba(242,180,12,0)}}
+  .duration{position:absolute;z-index:3;right:14px;bottom:12px;padding:5px 10px;border-radius:8px;background:rgba(0,0,0,.6);font-weight:800;font-size:12px}
+  .tip{margin-top:14px;font-size:14px;color:var(--muted);font-weight:700;text-align:center}
 
-  /* Celular */
+  /* Tablet e celular */
+  @media (max-width:900px){
+    .options.four{
+      grid-template-columns:repeat(2,1fr);
+      max-width:min(606px, max(280px, calc(0.8 * (100vh - var(--reserve) - 2 * var(--label-h) - 12px) + 12px)));
+      max-width:min(606px, max(280px, calc(0.8 * (100dvh - var(--reserve) - 2 * var(--label-h) - 12px) + 12px)));
+    }
+  }
   @media (max-width:640px){
-    .screen{padding-top:22px}
-    .question{padding:20px 16px;border-radius:16px}
-    .options{gap:12px;margin-top:14px}
-    .options.two{grid-template-columns:repeat(2,1fr)}
+    :root{--reserve:210px;--label-h:44px;--gap:12px}
+    .screen{padding-top:16px}
+    .question{padding:16px 14px;border-radius:16px}
+    .options{margin-top:14px}
     .options.four{gap:10px}
-    .label,.options.four .label{font-size:13.5px;padding:11px 8px}
-    .final h2{font-size:25px}
-    .player{margin-top:24px;max-width:340px}
+    .label,.options.four .label{font-size:13.5px;padding:8px 6px}
+    .opt{border-radius:14px}
+    .opt .check{width:24px;height:24px;font-size:14px;top:8px;right:8px}
+    .player{margin-top:20px;max-width:100%;border-radius:14px}
+    .cover-text{max-width:52%}
+    .cover-text p{display:none}
+    .badge{font-size:11px;margin-bottom:12px}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -180,18 +238,21 @@
   <header class="top" id="top">
     <div class="brand">EAGLLE</div>
     <div class="progress"><i id="bar"></i></div>
+    <div class="step-count" id="stepCount">Pergunta 1 de 4</div>
   </header>
 
   <!-- PERGUNTA 1 -->
   <section class="screen" data-step="1" data-key="instagram">
     <div class="question"><h1>Se um cliente buscar seu nome no Instagram agora, ele te acha fácil?</h1></div>
     <div class="options two">
-      <button class="opt" data-value="sim">
-        <div class="media"><img src="img/q1-sim.jpg" alt=""><div class="ph"><b>✓</b>img/q1-sim.jpg</div></div>
+      <button class="opt" data-value="sim" type="button">
+        <span class="check" aria-hidden="true">✓</span>
+        <div class="media"><img src="img/q1-sim.webp" alt="Perfil de corretor organizado e cheio de imóveis" width="720" height="900" decoding="async"></div>
         <div class="label">Sim, meu perfil está redondo</div>
       </button>
-      <button class="opt" data-value="nao">
-        <div class="media"><img src="img/q1-nao.jpg" alt=""><div class="ph"><b>?</b>img/q1-nao.jpg</div></div>
+      <button class="opt" data-value="nao" type="button">
+        <span class="check" aria-hidden="true">✓</span>
+        <div class="media"><img src="img/q1-nao.webp" alt="Celular com busca sem resultado" width="720" height="900" decoding="async"></div>
         <div class="label">Não, ou tenho dúvidas</div>
       </button>
     </div>
@@ -201,20 +262,24 @@
   <section class="screen" data-step="2" data-key="frequencia">
     <div class="question"><h1>Com que frequência<br>você posta vídeo hoje?</h1></div>
     <div class="options four">
-      <button class="opt" data-value="quase_nunca">
-        <div class="media"><img src="img/q2-quase-nunca.jpg" alt=""><div class="ph"><b>1</b>img/q2-quase-nunca.jpg</div></div>
+      <button class="opt" data-value="quase_nunca" type="button">
+        <span class="check" aria-hidden="true">✓</span>
+        <div class="media"><img data-src="img/q2-quase-nunca.webp" alt="Perfil quase vazio" width="720" height="900" decoding="async"></div>
         <div class="label">Quase nunca</div>
       </button>
-      <button class="opt" data-value="de_vez_em_quando">
-        <div class="media"><img src="img/q2-de-vez-em-quando.jpg" alt=""><div class="ph"><b>2</b>img/q2-de-vez-em-quando.jpg</div></div>
+      <button class="opt" data-value="de_vez_em_quando" type="button">
+        <span class="check" aria-hidden="true">✓</span>
+        <div class="media"><img data-src="img/q2-de-vez-em-quando.webp" alt="Poucos posts espalhados" width="720" height="900" decoding="async"></div>
         <div class="label">De vez em quando</div>
       </button>
-      <button class="opt" data-value="toda_semana">
-        <div class="media"><img src="img/q2-toda-semana.jpg" alt=""><div class="ph"><b>3</b>img/q2-toda-semana.jpg</div></div>
+      <button class="opt" data-value="toda_semana" type="button">
+        <span class="check" aria-hidden="true">✓</span>
+        <div class="media"><img data-src="img/q2-toda-semana.webp" alt="Grade de posts completa" width="720" height="900" decoding="async"></div>
         <div class="label">Toda semana</div>
       </button>
-      <button class="opt" data-value="todo_dia">
-        <div class="media"><img src="img/q2-todo-dia.jpg" alt=""><div class="ph"><b>4</b>img/q2-todo-dia.jpg</div></div>
+      <button class="opt" data-value="todo_dia" type="button">
+        <span class="check" aria-hidden="true">✓</span>
+        <div class="media"><img data-src="img/q2-todo-dia.webp" alt="Corretor gravando vídeo com o celular" width="720" height="900" decoding="async"></div>
         <div class="label">Todo dia</div>
       </button>
     </div>
@@ -224,12 +289,14 @@
   <section class="screen" data-step="3" data-key="aparece">
     <div class="question"><h1>Você aparece falando em vídeo?</h1></div>
     <div class="options two">
-      <button class="opt" data-value="sim">
-        <div class="media"><img src="img/q3-sim.jpg" alt=""><div class="ph"><b>✓</b>img/q3-sim.jpg</div></div>
+      <button class="opt" data-value="sim" type="button">
+        <span class="check" aria-hidden="true">✓</span>
+        <div class="media"><img data-src="img/q3-sim.webp" alt="Corretora gravando vídeo falando para o celular" width="720" height="900" decoding="async"></div>
         <div class="label">Sim, apareço</div>
       </button>
-      <button class="opt" data-value="nao">
-        <div class="media"><img src="img/q3-nao.jpg" alt=""><div class="ph"><b>×</b>img/q3-nao.jpg</div></div>
+      <button class="opt" data-value="nao" type="button">
+        <span class="check" aria-hidden="true">✓</span>
+        <div class="media"><img data-src="img/q3-nao.webp" alt="Vídeo só do imóvel, sem o corretor" width="720" height="900" decoding="async"></div>
         <div class="label">Não, só mostro o imóvel</div>
       </button>
     </div>
@@ -239,12 +306,14 @@
   <section class="screen" data-step="4" data-key="anuncio">
     <div class="question"><h1>Você já anunciou (turbinou)<br>um vídeo de imóvel?</h1></div>
     <div class="options two">
-      <button class="opt" data-value="sim">
-        <div class="media"><img src="img/q4-sim.jpg" alt=""><div class="ph"><b>✓</b>img/q4-sim.jpg</div></div>
+      <button class="opt" data-value="sim" type="button">
+        <span class="check" aria-hidden="true">✓</span>
+        <div class="media"><img data-src="img/q4-sim.webp" alt="Vídeo de imóvel impulsionado ganhando alcance" width="720" height="900" decoding="async"></div>
         <div class="label">Sim, já anunciei</div>
       </button>
-      <button class="opt" data-value="nao">
-        <div class="media"><img src="img/q4-nao.jpg" alt=""><div class="ph"><b>×</b>img/q4-nao.jpg</div></div>
+      <button class="opt" data-value="nao" type="button">
+        <span class="check" aria-hidden="true">✓</span>
+        <div class="media"><img data-src="img/q4-nao.webp" alt="Post de imóvel sem alcance" width="720" height="900" decoding="async"></div>
         <div class="label">Nunca fiz isso</div>
       </button>
     </div>
@@ -258,12 +327,21 @@
 
   <!-- SUPER AULA -->
   <section class="screen final" data-step="final">
+    <div class="badge"><i></i>Acesso liberado</div>
     <h2>Descubra os <em>5 passos d'O Vídeo que Vende</em> que fazem o corretor gerar <em>conversa</em>, não só visualização.</h2>
     <div class="player" id="player">
-      <button class="play" id="playBtn" aria-label="Assistir a Super Aula">
-        <svg viewBox="0 0 24 24"><path d="M6 4l15 8-15 8z"/></svg>
+      <button class="cover" id="cover" type="button" aria-label="Assistir a Super Aula">
+        <img src="img/capa-super-aula.webp" alt="" width="1280" height="720" loading="lazy" decoding="async">
+        <span class="cover-text">
+          <small>Super Aula</small>
+          <strong>O Vídeo<br>que <span>Vende</span></strong>
+          <p>Os 5 passos para gerar conversa</p>
+        </span>
+        <span class="play"><svg viewBox="0 0 24 24"><path d="M6 4l15 8-15 8z"/></svg></span>
+        <span class="duration">37 min</span>
       </button>
     </div>
+    <p class="tip">Assista até o final. O passo 5 é o que mais faz diferença.</p>
   </section>
 </main>
 
@@ -273,11 +351,11 @@
   var screens = Array.prototype.slice.call(document.querySelectorAll('.screen'));
   var bar = document.getElementById('bar');
   var top = document.getElementById('top');
+  var stepCount = document.getElementById('stepCount');
   var TOTAL = 4;
   var answers = {};
   var current = null;
 
-  // UTMs e origem, para mandar junto com as respostas
   var params = new URLSearchParams(location.search);
   var utm = {};
   ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid','gclid'].forEach(function(k){
@@ -285,43 +363,50 @@
   });
 
   function track(event, data){
-    var payload = Object.assign({event:event}, data || {});
-    window.dataLayer.push(payload);
+    window.dataLayer.push(Object.assign({event:event}, data || {}));
   }
 
-  // Imagem ausente vira placeholder (não quebra o layout)
-  document.querySelectorAll('.media img').forEach(function(img){
-    function fail(){ img.parentNode.classList.add('missing'); }
-    if(img.complete && img.naturalWidth === 0) fail();
-    img.addEventListener('error', fail);
-  });
+  // Imagens: aparecem suavemente e as da próxima pergunta são carregadas antes
+  function wire(img){
+    if(img.dataset.wired) return; img.dataset.wired = '1';
+    var done = function(){ img.classList.add('ok'); };
+    if(img.complete && img.naturalWidth) done();
+    img.addEventListener('load', done);
+    img.addEventListener('error', function(){ img.classList.remove('ok'); });
+  }
+  function loadStep(step){
+    var sec = screens.filter(function(s){ return s.dataset.step == String(step); })[0];
+    if(!sec) return;
+    sec.querySelectorAll('img').forEach(function(img){
+      if(img.dataset.src && !img.getAttribute('src')) img.src = img.dataset.src;
+      wire(img);
+    });
+  }
+  loadStep(1);
+  window.addEventListener('load', function(){ setTimeout(function(){ loadStep(2); }, 150); });
 
   function setProgress(step){
-    var pct;
-    if(typeof step === 'number') pct = (step - 1) / TOTAL * 100 + 100 / TOTAL;
-    else pct = 100;
-    // Primeira pergunta já começa com 25%, como no Lovable
+    var pct = typeof step === 'number' ? step / TOTAL * 100 : 100;
     bar.style.width = pct + '%';
+    stepCount.textContent = typeof step === 'number' ? 'Pergunta ' + step + ' de ' + TOTAL : '';
   }
 
   function show(step){
     var next = screens.filter(function(s){ return s.dataset.step == String(step); })[0];
     if(!next) return;
+    loadStep(step);
+    if(typeof step === 'number') loadStep(step + 1);
     var go = function(){
       screens.forEach(function(s){ s.classList.remove('active','leaving'); });
       next.classList.add('active');
       current = next;
-      top.classList.toggle('no-bar', step === 'final');
+      top.classList.toggle('no-bar', step === 'final' || step === 'loading');
       setProgress(step);
       window.scrollTo({top:0, behavior:'smooth'});
     };
-    if(current){
-      current.classList.add('leaving');
-      setTimeout(go, 260);
-    } else go();
+    if(current){ current.classList.add('leaving'); setTimeout(go, 260); } else go();
   }
 
-  // Cliques nas opções
   screens.forEach(function(sec){
     var opts = sec.querySelectorAll('.opt');
     opts.forEach(function(btn){
@@ -332,14 +417,10 @@
         var key = sec.dataset.key;
         var value = btn.dataset.value;
         answers[key] = value;
-
         opts.forEach(function(o){ o.classList.add(o === btn ? 'picked' : 'dim'); });
+        if(navigator.vibrate) try{ navigator.vibrate(12); }catch(e){}
         track('quiz_resposta', {quiz_step: step, quiz_pergunta: key, quiz_resposta: value});
-
-        setTimeout(function(){
-          if(step < TOTAL) show(step + 1);
-          else finish();
-        }, 420);
+        setTimeout(function(){ step < TOTAL ? show(step + 1) : finish(); }, 480);
       });
     });
   });
@@ -347,22 +428,18 @@
   function finish(){
     track('quiz_concluido', {quiz_respostas: answers});
     show('loading');
-
+    var cover = document.querySelector('#cover img');
+    if(cover) cover.loading = 'eager';
     if(CFG.webhookUrl){
       try{
         fetch(CFG.webhookUrl, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
+          method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({respostas: answers, origem: utm, pagina: location.href, data: new Date().toISOString()}),
           keepalive:true
         }).catch(function(){});
       }catch(e){}
     }
-
-    setTimeout(function(){
-      show('final');
-      track('superaula_liberada');
-    }, CFG.loadingMs || 2200);
+    setTimeout(function(){ show('final'); track('superaula_liberada'); }, CFG.loadingMs || 2200);
   }
 
   // Player da Super Aula
@@ -371,20 +448,19 @@
     var m;
     if((m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{6,})/)))
       return {type:'iframe', src:'https://www.youtube.com/embed/' + m[1] + '?autoplay=1&rel=0&modestbranding=1&playsinline=1'};
-    if((m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/)))
-      return {type:'iframe', src:'https://player.vimeo.com/video/' + m[1] + '?autoplay=1&title=0&byline=0&portrait=0'};
+    if((m = url.match(/vimeo\.com\/(?:video\/)?(\d+)(?:\/([a-f0-9]{6,}))?/))){
+      var h = m[2] || (url.match(/[?&]h=([a-f0-9]+)/) || [])[1];
+      return {type:'iframe', src:'https://player.vimeo.com/video/' + m[1] + '?' + (h ? 'h=' + h + '&' : '') + 'autoplay=1&title=0&byline=0&portrait=0&playsinline=1&color=f2b40c'};
+    }
     if(/\.(mp4|webm|mov)(\?|$)/i.test(url)) return {type:'video', src:url};
     return {type:'iframe', src:url};
   }
 
   var player = document.getElementById('player');
-  document.getElementById('playBtn').addEventListener('click', function(){
+  document.getElementById('cover').addEventListener('click', function(){
     var e = embedUrl(CFG.videoUrl);
     track('superaula_play');
-    if(!e){
-      player.insertAdjacentHTML('beforeend','<div class="note">Configure o link do vídeo em QUIZ_CONFIG.videoUrl</div>');
-      return;
-    }
+    if(!e) return;
     var el;
     if(e.type === 'video'){
       el = document.createElement('video');
@@ -395,6 +471,7 @@
       el.src = e.src;
       el.allow = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
       el.allowFullscreen = true;
+      el.title = 'Super Aula O Vídeo que Vende';
     }
     player.innerHTML = '';
     player.appendChild(el);
