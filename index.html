@@ -37,7 +37,13 @@
     webhookUrl: "",
 
     // Tempo da tela "Preparando seu acesso..." em milissegundos
-    loadingMs: 2200
+    loadingMs: 2200,
+
+    // Oferta liberada no minuto do vídeo (em segundos). 36:12 = 36*60+12 = 2172
+    offer: {
+      unlockAt: 2172,
+      enabled: false  // liga quando o conteúdo da oferta estiver pronto
+    }
   };
 </script>
 
@@ -204,6 +210,11 @@
   .duration{position:absolute;z-index:3;right:14px;bottom:12px;padding:5px 10px;border-radius:8px;background:rgba(0,0,0,.6);font-weight:800;font-size:12px}
   .tip{margin-top:14px;font-size:14px;color:var(--muted);font-weight:700;text-align:center}
 
+  /* Oferta (liberada no minuto do vídeo) */
+  .offer{width:100%;max-width:960px;margin-top:40px;opacity:0;transform:translateY(30px);transition:opacity .7s ease, transform .7s cubic-bezier(.2,.8,.2,1)}
+  .offer.show{opacity:1;transform:none}
+  .offer[hidden]{display:none}
+
   /* Tablet e celular */
   @media (max-width:900px){
     .options.four{
@@ -342,6 +353,13 @@
       </button>
     </div>
     <p class="tip">Assista até o final. O passo 5 é o que mais faz diferença.</p>
+
+    <!-- OFERTA: só aparece quando o vídeo chega no tempo definido em QUIZ_CONFIG.offer.unlockAt -->
+    <section class="offer" id="offer" aria-live="polite" hidden>
+      <div class="offer-inner" id="offerContent">
+        <!-- conteúdo da oferta entra aqui -->
+      </div>
+    </section>
   </section>
 </main>
 
@@ -475,11 +493,69 @@
     }
     player.innerHTML = '';
     player.appendChild(el);
+    if(e.type === 'video') watchVideoTag(el);
+    else if(/player\.vimeo\.com/.test(e.src)) watchVimeo(el);
   });
 
-  track('quiz_inicio', utm);
-  show(1);
-})();
+  // ---------- Oferta liberada no minuto do vídeo ----------
+  var OFFER = CFG.offer || {};
+  var KEY_OFFER = 'eaglle_vqv_oferta_liberada';
+  var KEY_DONE = 'eaglle_vqv_quiz_concluido';
+  var offerEl = document.getElementById('offer');
+  var unlocked = false;
+
+  function store(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+  function read(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+
+  function unlockOffer(fromVideo){
+    if(unlocked || !OFFER.enabled || !offerEl) return;
+    unlocked = true;
+    store(KEY_OFFER, '1');
+    offerEl.hidden = false;
+    requestAnimationFrame(function(){ offerEl.classList.add('show'); });
+    if(fromVideo){
+      track('oferta_liberada', {segundo: OFFER.unlockAt});
+      setTimeout(function(){ offerEl.scrollIntoView({behavior:'smooth', block:'start'}); }, 400);
+    }
+  }
+  function checkTime(sec){ if(sec >= (OFFER.unlockAt || 0)) unlockOffer(true); }
+
+  function watchVideoTag(v){
+    v.addEventListener('timeupdate', function(){ checkTime(v.currentTime); });
+  }
+  function watchVimeo(iframe){
+    function attach(){
+      try{
+        var p = new window.Vimeo.Player(iframe);
+        p.on('timeupdate', function(d){ checkTime(d.seconds); });
+        p.on('seeked', function(d){ checkTime(d.seconds); });
+        p.on('play', function(){ track('superaula_inicio_video'); });
+        p.on('ended', function(){ track('superaula_fim_video'); unlockOffer(true); });
+      }catch(err){}
+    }
+    if(window.Vimeo && window.Vimeo.Player) return attach();
+    var s = document.createElement('script');
+    s.src = 'https://player.vimeo.com/api/player.js';
+    s.onload = attach;
+    document.head.appendChild(s);
+  }
+
+  // Quem já concluiu o quiz volta direto para a aula; quem já liberou a oferta já a vê
+  var originalFinish = finish;
+  finish = function(){ store(KEY_DONE, '1'); originalFinish(); };
+  if(read(KEY_OFFER) === '1') unlockOffer(false);
+  if(read(KEY_DONE) === '1' && !params.has('refazer')){
+    current = null;
+    window.__startAt = 'final';
+  }
+
+  if(window.__startAt === 'final'){
+    track('superaula_retorno', utm);
+    show('final');
+  } else {
+    track('quiz_inicio', utm);
+    show(1);
+  }})();
 </script>
 </body>
 </html>
