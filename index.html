@@ -240,10 +240,22 @@
     background:rgba(10,2,25,.5);color:#fff;font:900 13px/1 inherit;font-family:inherit;letter-spacing:.02em;cursor:pointer;transition:opacity .3s ease;-webkit-tap-highlight-color:transparent}
   .vspeed-btn.fast{color:var(--gold-soft);border-color:rgba(242,180,12,.55)}
   .vspeed-btn[hidden]{display:none}
-  .player.is-playing:not(.ui-on) .vfs-btn,.player.is-playing:not(.ui-on) .vspeed-btn{opacity:0;pointer-events:none}
-  .player.ended .vfs-btn,.player.ended .vspeed-btn{display:none}
+  /* Qualidade do vídeo: botão discreto + listinha */
+  .vq-btn{position:absolute;z-index:5;right:102px;bottom:10px;min-width:46px;height:34px;padding:0 9px;border-radius:10px;border:1px solid rgba(255,255,255,.22);
+    background:rgba(10,2,25,.5);color:#fff;font:900 12px/1 inherit;font-family:inherit;cursor:pointer;transition:opacity .3s ease;-webkit-tap-highlight-color:transparent}
+  .vq-btn[hidden],.vq-menu[hidden]{display:none}
+  .vq-menu{position:absolute;z-index:7;right:102px;bottom:52px;min-width:120px;padding:6px;border-radius:12px;border:1px solid rgba(255,255,255,.18);
+    background:rgba(14,3,32,.94);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+  .vq-menu p{margin:2px 8px 6px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+  .vq-menu button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:8px 10px;border:0;border-radius:8px;background:transparent;color:#fff;font:800 13px/1.2 inherit;font-family:inherit;cursor:pointer;text-align:left}
+  .vq-menu button.on{background:rgba(242,180,12,.16);color:var(--gold-soft)}
+  .vq-menu button small{font-size:11px;font-weight:700;color:rgba(255,255,255,.5)}
+  .player.is-playing:not(.ui-on) .vfs-btn,.player.is-playing:not(.ui-on) .vspeed-btn,.player.is-playing:not(.ui-on) .vq-btn{opacity:0;pointer-events:none}
+  .player.ended .vfs-btn,.player.ended .vspeed-btn,.player.ended .vq-btn,.player.ended .vq-menu{display:none}
   @media (pointer:coarse){ .vfs-btn{width:28px;height:28px;right:8px;bottom:8px;border-radius:8px;background:rgba(10,2,25,.38);border-color:rgba(255,255,255,.16)} .vfs-btn svg{width:14px;height:14px}
-    .vspeed-btn{right:42px;bottom:8px;height:28px;min-width:36px;padding:0 7px;border-radius:8px;font-size:11px;background:rgba(10,2,25,.38);border-color:rgba(255,255,255,.16)} }
+    .vspeed-btn{right:42px;bottom:8px;height:28px;min-width:36px;padding:0 7px;border-radius:8px;font-size:11px;background:rgba(10,2,25,.38);border-color:rgba(255,255,255,.16)}
+    .vq-btn{right:84px;bottom:8px;height:28px;min-width:40px;padding:0 7px;border-radius:8px;font-size:10.5px;background:rgba(10,2,25,.38);border-color:rgba(255,255,255,.16)}
+    .vq-menu{right:84px;bottom:42px} }
   .sound-pill{position:absolute;z-index:4;left:50%;top:14px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:99px;border:0;
     background:var(--gold);color:#1a0638;font-weight:900;font-size:14px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:pulse 2.2s ease-in-out infinite;white-space:nowrap}
   .sound-pill svg{width:18px;height:18px;fill:none;stroke:#1a0638;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
@@ -905,6 +917,43 @@
     });
   }
   function nextSpeed(){ var i = SPEEDS.indexOf(curSpeed); applySpeed(SPEEDS[(i + 1) % SPEEDS.length]); }
+
+  // Qualidade: para quem está com internet fraca (dados móveis)
+  var KEY_QUALITY = 'eaglle_vqv_qualidade';
+  var curQuality = read(KEY_QUALITY) || 'auto';
+  var qList = [];
+  var QNOTE = {auto: 'ajusta sozinho', '240p': 'internet fraca', '360p': 'economiza dados'};
+  function qLabel(id){ return id === 'auto' ? 'Auto' : id; }
+  function paintQuality(){
+    if(!ui || !ui.qbtn) return;
+    ui.qbtn.textContent = qLabel(curQuality);
+    ui.qbtn.setAttribute('aria-label', 'Qualidade do vídeo: ' + qLabel(curQuality));
+    ui.qmenu.innerHTML = '<p>Qualidade</p>';
+    qList.forEach(function(id){
+      var b = document.createElement('button'); b.type = 'button';
+      b.className = id === curQuality ? 'on' : '';
+      b.innerHTML = qLabel(id) + (QNOTE[id] ? ' <small>' + QNOTE[id] + '</small>' : '');
+      b.addEventListener('click', function(ev){ ev.stopPropagation(); applyQuality(id); closeQMenu(); });
+      ui.qmenu.appendChild(b);
+    });
+  }
+  function closeQMenu(){ if(ui && ui.qmenu) ui.qmenu.hidden = true; }
+  function setupQuality(){
+    if(!ctl || !ctl.getQualities || !ui || !ui.qbtn) return;
+    ctl.getQualities().then(function(list){
+      qList = (list || []).map(function(q){ return q.id; });
+      if(qList.length < 2){ ui.qbtn.hidden = true; return; }
+      if(qList.indexOf(curQuality) < 0) curQuality = 'auto';
+      ui.qbtn.hidden = false; paintQuality();
+      if(curQuality !== 'auto') applyQuality(curQuality, true);
+    }).catch(function(){ ui.qbtn.hidden = true; });
+  }
+  function applyQuality(id, silent){
+    if(!ctl || !ctl.setQuality) return;
+    ctl.setQuality(id).then(function(q){
+      curQuality = q || id; if(!PREVIEW) store(KEY_QUALITY, curQuality); paintQuality();
+    }).catch(function(){});
+  }
   var isPlaying = false, startedOnce = false, hideTimer = null;
 
   function hideOverlay(){ vo.hidden = true; player.classList.remove('ended'); }
@@ -938,7 +987,7 @@
     if(!ui) return;
     player.classList.add('ui-on');
     clearTimeout(hideTimer);
-    hideTimer = setTimeout(function(){ if(isPlaying) player.classList.remove('ui-on'); }, 2600);
+    hideTimer = setTimeout(function(){ if(isPlaying && !(ui && ui.qmenu && !ui.qmenu.hidden)) player.classList.remove('ui-on'); }, 2600);
   }
   function setPlaying(on){
     isPlaying = on;
@@ -961,14 +1010,24 @@
     player.insertBefore(sound, vo);
     var speed = document.createElement('button');
     speed.type = 'button'; speed.className = 'vspeed-btn';
+    var qbtn = document.createElement('button');
+    qbtn.type = 'button'; qbtn.className = 'vq-btn'; qbtn.hidden = true;
+    var qmenu = document.createElement('div');
+    qmenu.className = 'vq-menu'; qmenu.hidden = true;
+    player.appendChild(qbtn);
+    player.appendChild(qmenu);
     player.appendChild(speed);
     player.appendChild(fs);
-    ui = {tap: tap, sound: sound, fs: fs, speed: speed};
+    ui = {tap: tap, sound: sound, fs: fs, speed: speed, qbtn: qbtn, qmenu: qmenu};
     paintSpeed();
+    qbtn.addEventListener('click', function(ev){ ev.stopPropagation(); qmenu.hidden = !qmenu.hidden; if(!qmenu.hidden) player.classList.add('ui-on'); else wakeControls(); });
+    qmenu.addEventListener('click', function(ev){ ev.stopPropagation(); });
+    if(qList.length){ qbtn.hidden = false; paintQuality(); }
     speed.addEventListener('click', function(ev){ ev.stopPropagation(); nextSpeed(); wakeControls(); });
 
     tap.addEventListener('click', function(){
       if(!ctl) return;
+      if(ui && ui.qmenu && !ui.qmenu.hidden){ closeQMenu(); wakeControls(); return; }
       // no celular, o primeiro toque com o vídeo rodando só mostra o botão de tela cheia
       if(isPlaying && coarse && !player.classList.contains('ui-on')){ wakeControls(); return; }
       if(isPlaying){ ctl.pause(); }
@@ -1258,7 +1317,9 @@
           pause: function(){ p.pause().catch(function(){}); },
           seek: function(s, andPlay){ p.setCurrentTime(s).then(function(){ if(andPlay) ctl.play(); }).catch(function(){}); },
           unmute: function(){ p.setMuted(false).catch(function(){}); p.setVolume(1).catch(function(){}); },
-          setRate: function(r){ return p.setPlaybackRate(r).then(function(){ return p.getPlaybackRate(); }); }
+          setRate: function(r){ return p.setPlaybackRate(r).then(function(){ return p.getPlaybackRate(); }); },
+          getQualities: function(){ return p.getQualities(); },
+          setQuality: function(q){ return p.setQuality(q); }
         };
         p.getDuration().then(function(d){ dur = d; store(KEY_DUR, String(Math.floor(d))); }).catch(function(){});
         p.ready().then(function(){ if(onReady) onReady(); }).catch(function(){ if(onReady) onReady(); });
@@ -1269,6 +1330,7 @@
         p.on('seeked', function(d){ checkTime(d.seconds); savePos(d.seconds, true); });
         p.on('play', function(){
           setPlaying(true); track('superaula_inicio_video');
+          if(ui && ui.qbtn && !qList.length) setupQuality();
           if(curSpeed !== 1) p.getPlaybackRate().then(function(cr){ if(cr !== curSpeed) applySpeed(curSpeed); }).catch(function(){});
           p.getMuted().then(function(m){ if(m) updateSound(true); else p.getVolume().then(function(vl){ updateSound(vl === 0); }); }).catch(function(){});
         });
