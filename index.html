@@ -235,9 +235,15 @@
   .vfs-btn .ic-exit{display:none}
   body.pseudo-fs .vfs-btn .ic-enter,.player:fullscreen .vfs-btn .ic-enter{display:none}
   body.pseudo-fs .vfs-btn .ic-exit,.player:fullscreen .vfs-btn .ic-exit{display:block}
-  .player.is-playing:not(.ui-on) .vfs-btn{opacity:0;pointer-events:none}
-  .player.ended .vfs-btn{display:none}
-  @media (pointer:coarse){ .vfs-btn{width:28px;height:28px;right:8px;bottom:8px;border-radius:8px;background:rgba(10,2,25,.38);border-color:rgba(255,255,255,.16)} .vfs-btn svg{width:14px;height:14px} }
+  /* Botão de velocidade, ao lado do de tela cheia */
+  .vspeed-btn{position:absolute;z-index:5;right:52px;bottom:10px;min-width:42px;height:34px;padding:0 9px;border-radius:10px;border:1px solid rgba(255,255,255,.22);
+    background:rgba(10,2,25,.5);color:#fff;font:900 13px/1 inherit;font-family:inherit;letter-spacing:.02em;cursor:pointer;transition:opacity .3s ease;-webkit-tap-highlight-color:transparent}
+  .vspeed-btn.fast{color:var(--gold-soft);border-color:rgba(242,180,12,.55)}
+  .vspeed-btn[hidden]{display:none}
+  .player.is-playing:not(.ui-on) .vfs-btn,.player.is-playing:not(.ui-on) .vspeed-btn{opacity:0;pointer-events:none}
+  .player.ended .vfs-btn,.player.ended .vspeed-btn{display:none}
+  @media (pointer:coarse){ .vfs-btn{width:28px;height:28px;right:8px;bottom:8px;border-radius:8px;background:rgba(10,2,25,.38);border-color:rgba(255,255,255,.16)} .vfs-btn svg{width:14px;height:14px}
+    .vspeed-btn{right:42px;bottom:8px;height:28px;min-width:36px;padding:0 7px;border-radius:8px;font-size:11px;background:rgba(10,2,25,.38);border-color:rgba(255,255,255,.16)} }
   .sound-pill{position:absolute;z-index:4;left:50%;top:14px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:99px;border:0;
     background:var(--gold);color:#1a0638;font-weight:900;font-size:14px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:pulse 2.2s ease-in-out infinite;white-space:nowrap}
   .sound-pill svg{width:18px;height:18px;fill:none;stroke:#1a0638;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
@@ -841,7 +847,7 @@
       return {type:'iframe', src:'https://www.youtube.com/embed/' + m[1] + '?autoplay=1&rel=0&modestbranding=1&playsinline=1'};
     if((m = url.match(/vimeo\.com\/(?:video\/)?(\d+)(?:\/([a-f0-9]{6,}))?/))){
       var h = m[2] || (url.match(/[?&]h=([a-f0-9]+)/) || [])[1];
-      return {type:'iframe', src:'https://player.vimeo.com/video/' + m[1] + '?' + (h ? 'h=' + h + '&' : '') + 'autoplay=1&controls=0&title=0&byline=0&portrait=0&playsinline=1&dnt=1&keyboard=0&color=f2b40c'};
+      return {type:'iframe', src:'https://player.vimeo.com/video/' + m[1] + '?' + (h ? 'h=' + h + '&' : '') + 'autoplay=1&controls=0&speed=1&title=0&byline=0&portrait=0&playsinline=1&dnt=1&keyboard=0&color=f2b40c'};
     }
     if(/\.(mp4|webm|mov)(\?|$)/i.test(url)) return {type:'video', src:url};
     return {type:'iframe', src:url};
@@ -879,7 +885,26 @@
   }
 
   // ---------- Controles próprios do player ----------
-  var ui = null; // {tap, sound, fs}
+  var ui = null; // {tap, sound, fs, speed}
+  // Velocidade do vídeo: a oferta continua abrindo pela posição do vídeo (36:12), em qualquer velocidade
+  var SPEEDS = [1, 1.5, 2, 2.5];
+  var KEY_SPEED = 'eaglle_vqv_velocidade';
+  var curSpeed = parseFloat(read(KEY_SPEED)) || 1;
+  if(SPEEDS.indexOf(curSpeed) < 0) curSpeed = 1;
+  function speedLabel(r){ return String(r).replace('.', ',') + 'x'; }
+  function paintSpeed(){ if(ui && ui.speed){ ui.speed.textContent = speedLabel(curSpeed); ui.speed.classList.toggle('fast', curSpeed > 1); ui.speed.setAttribute('aria-label', 'Velocidade ' + speedLabel(curSpeed)); } }
+  function applySpeed(r, tries){
+    if(!ctl || !ctl.setRate) return;
+    ctl.setRate(r).then(function(ok){
+      curSpeed = ok; if(!PREVIEW) store(KEY_SPEED, String(ok)); paintSpeed();
+    }).catch(function(){
+      // velocidade não aceita pelo player (ex.: 2,5x no Vimeo): tira da lista e vai para a próxima
+      var i = SPEEDS.indexOf(r);
+      if(i > 0) SPEEDS.splice(i, 1);
+      if((tries || 0) < 3) applySpeed(i > 0 && i < SPEEDS.length ? SPEEDS[i] : 1, (tries || 0) + 1);
+    });
+  }
+  function nextSpeed(){ var i = SPEEDS.indexOf(curSpeed); applySpeed(SPEEDS[(i + 1) % SPEEDS.length]); }
   var isPlaying = false, startedOnce = false, hideTimer = null;
 
   function hideOverlay(){ vo.hidden = true; player.classList.remove('ended'); }
@@ -934,8 +959,13 @@
     sound.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>Toque para ativar o som';
     player.insertBefore(tap, vo);
     player.insertBefore(sound, vo);
+    var speed = document.createElement('button');
+    speed.type = 'button'; speed.className = 'vspeed-btn';
+    player.appendChild(speed);
     player.appendChild(fs);
-    ui = {tap: tap, sound: sound, fs: fs};
+    ui = {tap: tap, sound: sound, fs: fs, speed: speed};
+    paintSpeed();
+    speed.addEventListener('click', function(ev){ ev.stopPropagation(); nextSpeed(); wakeControls(); });
 
     tap.addEventListener('click', function(){
       if(!ctl) return;
@@ -1195,11 +1225,12 @@
       startAt: function(s){ v.currentTime = s; ctl.play(); },
       pause: function(){ v.pause(); },
       seek: function(s, andPlay){ v.currentTime = s; if(andPlay) ctl.play(); },
-      unmute: function(){ v.muted = false; }
+      unmute: function(){ v.muted = false; },
+      setRate: function(r){ try{ v.playbackRate = r; v.defaultPlaybackRate = r; return Promise.resolve(v.playbackRate); }catch(x){ return Promise.reject(x); } }
     };
     v.addEventListener('timeupdate', function(){ onTime(v.currentTime, v.duration); });
     v.addEventListener('loadedmetadata', function(){ if(v.duration) store(KEY_DUR, String(Math.floor(v.duration))); });
-    v.addEventListener('play', function(){ setPlaying(true); updateSound(v.muted); });
+    v.addEventListener('play', function(){ setPlaying(true); updateSound(v.muted); if(curSpeed !== 1 && v.playbackRate !== curSpeed) applySpeed(curSpeed); });
     v.addEventListener('pause', function(){ setPlaying(false); if(!v.ended){ savePos(v.currentTime, true); showOverlay('pause'); } });
     v.addEventListener('ended', function(){ setPlaying(false); store(KEY_POS, '0'); track('superaula_fim_video'); showOverlay('ended'); });
   }
@@ -1226,7 +1257,8 @@
           },
           pause: function(){ p.pause().catch(function(){}); },
           seek: function(s, andPlay){ p.setCurrentTime(s).then(function(){ if(andPlay) ctl.play(); }).catch(function(){}); },
-          unmute: function(){ p.setMuted(false).catch(function(){}); p.setVolume(1).catch(function(){}); }
+          unmute: function(){ p.setMuted(false).catch(function(){}); p.setVolume(1).catch(function(){}); },
+          setRate: function(r){ return p.setPlaybackRate(r).then(function(){ return p.getPlaybackRate(); }); }
         };
         p.getDuration().then(function(d){ dur = d; store(KEY_DUR, String(Math.floor(d))); }).catch(function(){});
         p.ready().then(function(){ if(onReady) onReady(); }).catch(function(){ if(onReady) onReady(); });
@@ -1237,6 +1269,7 @@
         p.on('seeked', function(d){ checkTime(d.seconds); savePos(d.seconds, true); });
         p.on('play', function(){
           setPlaying(true); track('superaula_inicio_video');
+          if(curSpeed !== 1) p.getPlaybackRate().then(function(cr){ if(cr !== curSpeed) applySpeed(curSpeed); }).catch(function(){});
           p.getMuted().then(function(m){ if(m) updateSound(true); else p.getVolume().then(function(vl){ updateSound(vl === 0); }); }).catch(function(){});
         });
         p.on('volumechange', function(d){ updateSound(d.volume === 0); });
